@@ -309,7 +309,7 @@ function renderVerdict(){
   } else if(isMagic(h)){
     v.className='verdict v-caution'; lvl.textContent='CAUTION'; head.textContent='魔の時間帯';
     cnt.style.display='none';
-    sub.textContent='滝が来た気がしても誤認の公算大。3条件を厳格に・サイズ半分・迷ったら見送り。本命は0時台以降。';
+    sub.textContent='入ってよい。ただし実測では0.1台=+21.5万・0.3以上=−70万。0.1台・SL必置・滝のみに絞れば攻める価値あり。';
   } else if(isHonmei(h)||(h>=2&&h<=4)){
     v.className='verdict v-go'; lvl.textContent='GO'; head.textContent='本命帯';
     cnt.style.display='none';
@@ -340,7 +340,10 @@ function renderAssess(){
   if(draft.sl==='0') issues.push('SLなし＝過去10件全て強制ロスカット・勝率0%。必ず置く。');
   if(draft.axis==='smolder') issues.push('燻り(＜0.5bp)の金利は判断材料にならない。ラインBのPAで見る。');
   const h=jstNow().getHours();
-  if(isMagic(h)) issues.push('魔の時間帯。認める場合もサイズ半分・深追い禁止。');
+  if(isMagic(h)){
+    if(draft.lot && draft.lot!=='0.1') issues.push('魔の時間帯で0.1台超は実測−70万の震源。ロットを0.1台へ落とせば攻めてよい時間。');
+    else good.push('魔の時間帯だが0.1台なら実測+21.5万・勝率71%。SL必置・滝のみで入ってよい。');
+  }
 
   let cls,head;
   if(cd>0 || draft.sl==='0'){ cls='a-stop'; head='見送り推奨（防具に抵触）'; }
