@@ -1,486 +1,108 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="theme-color" content="#F4F2ED">
-<title>XAUUSD 執行ログ</title>
+
+<!doctype html>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>XAUUSD 計算ツール（連動版）</title>
 <style>
-  :root{
-    --ink:#F4F2ED; --panel:#FFFFFF; --panel2:#EDEAE2; --line:#DAD5C9;
-    --text:#22262B; --muted:#6B7280; --dim:#9AA0A8;
-    --gold:#A67C1E; --go:#1F9D63; --caution:#C6820E; --stop:#D23B3F;
-    --mono:ui-monospace,"SF Mono",Menlo,"Roboto Mono",monospace;
-    --sans:-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;
-  }
-  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html,body{margin:0;background:var(--ink);color:var(--text);font-family:var(--sans);
-    font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
-  .wrap{max-width:540px;margin:0 auto;padding:0 16px 120px;
-    padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
-
-  /* header / brand */
-  header{padding:18px 0 10px;display:flex;justify-content:space-between;align-items:baseline}
-  .brand{font-weight:700;letter-spacing:.14em;font-size:13px;color:var(--gold);text-transform:uppercase}
-  .brand span{color:var(--dim)}
-  .clock{font-family:var(--mono);font-size:13px;color:var(--muted);text-align:right}
-  .clock b{color:var(--text);font-weight:600}
-  .band{display:inline-block;margin-top:2px;font-size:10.5px;letter-spacing:.08em;
-    padding:1px 6px;border-radius:3px;border:1px solid var(--line);color:var(--muted)}
-  .band.magic{color:var(--caution);border-color:#E4C98A}
-  .band.honmei{color:var(--go);border-color:#A8D9BE}
-
-  /* verdict banner = signature element */
-  .verdict{position:sticky;top:0;z-index:20;margin:6px -16px 20px;padding:16px;
-    background:var(--panel);border-top:3px solid var(--line);border-bottom:1px solid var(--line);
-    box-shadow:0 4px 14px rgba(40,36,25,.06)}
-  .verdict .lvl{font-size:11px;letter-spacing:.22em;font-weight:700;text-transform:uppercase}
-  .verdict .headline{font-size:26px;font-weight:800;letter-spacing:.02em;margin:2px 0 3px;font-family:var(--mono)}
-  .verdict .sub{font-size:13px;color:var(--muted);line-height:1.45}
-  .verdict .count{font-family:var(--mono);font-size:40px;font-weight:800;letter-spacing:.04em;margin:4px 0 2px}
-  .v-go{border-top-color:var(--go)} .v-go .lvl,.v-go .headline{color:var(--go)}
-  .v-caution{border-top-color:var(--caution)} .v-caution .lvl,.v-caution .headline{color:var(--caution)}
-  .v-stop{border-top-color:var(--stop);background:#FBECEC} .v-stop .lvl,.v-stop .headline,.v-stop .count{color:var(--stop)}
-  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
-  .v-stop .count{animation:pulse 1.4s ease-in-out infinite}
-
-  /* tabs */
-  .tabs{display:flex;gap:4px;margin-bottom:16px;background:var(--panel);padding:4px;border-radius:10px}
-  .tabs button{flex:1;padding:9px 0;border:0;background:transparent;color:var(--muted);
-    font-family:var(--sans);font-size:13px;font-weight:600;border-radius:7px;cursor:pointer}
-  .tabs button.on{background:var(--panel2);color:var(--text)}
-
-  /* form */
-  .field{margin-bottom:18px}
-  .label{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
-    margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
-  .label .hint{text-transform:none;letter-spacing:0;color:var(--dim);font-size:11px}
-  .seg{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
-  .seg.c4{grid-template-columns:repeat(4,1fr)}
-  .seg.c3{grid-template-columns:repeat(3,1fr)}
-  .opt{padding:14px 8px;border:1px solid var(--line);background:var(--panel);border-radius:9px;
-    color:var(--text);font-family:var(--sans);font-size:15px;font-weight:600;cursor:pointer;
-    text-align:center;line-height:1.25;transition:border-color .12s,background .12s;
-    box-shadow:0 1px 2px rgba(40,36,25,.04)}
-  .opt small{display:block;font-size:10.5px;font-weight:500;color:var(--dim);margin-top:3px;letter-spacing:.02em}
-  .opt.sel{border-color:var(--text);background:var(--panel2)}
-  .opt.sel small{color:var(--muted)}
-  .opt.good.sel{border-color:var(--go)} .opt.good.sel small{color:var(--go)}
-  .opt.bad.sel{border-color:var(--stop)} .opt.bad.sel small{color:var(--stop)}
-  .opt.warn.sel{border-color:var(--caution)} .opt.warn.sel small{color:var(--caution)}
-  input[type=number]{width:100%;padding:13px;background:var(--panel);border:1px solid var(--line);
-    border-radius:9px;color:var(--text);font-family:var(--mono);font-size:16px}
-  input[type=number]:focus{outline:none;border-color:var(--gold)}
-
-  /* live assessment */
-  .assess{border:1px solid var(--line);border-left:3px solid var(--dim);border-radius:8px;
-    padding:12px 14px;margin:4px 0 18px;background:var(--panel);font-size:13px}
-  .assess .a-head{font-weight:700;font-size:14px;margin-bottom:4px}
-  .assess ul{margin:6px 0 0;padding-left:18px;color:var(--muted)}
-  .assess li{margin:2px 0}
-  .assess.a-go{border-left-color:var(--go)} .assess.a-go .a-head{color:var(--go)}
-  .assess.a-warn{border-left-color:var(--caution)} .assess.a-warn .a-head{color:var(--caution)}
-  .assess.a-stop{border-left-color:var(--stop)} .assess.a-stop .a-head{color:var(--stop)}
-
-  .btn{width:100%;padding:16px;border:0;border-radius:11px;font-family:var(--sans);
-    font-size:16px;font-weight:700;cursor:pointer;background:var(--gold);color:#fff;letter-spacing:.03em}
-  .btn:disabled{opacity:.4}
-  .btn.ghost{background:var(--panel);border:1px solid var(--line);color:var(--muted);font-weight:600}
-  .btn.danger{background:var(--stop);color:#fff}
-
-  /* positions & rows */
-  .pos{border:1px solid var(--line);border-radius:10px;padding:13px 14px;margin-bottom:10px;background:var(--panel)}
-  .pos .top{display:flex;justify-content:space-between;align-items:center;gap:8px}
-  .pos .dir{font-family:var(--mono);font-weight:800;font-size:16px}
-  .dir-buy{color:var(--go)} .dir-sell{color:var(--stop)}
-  .chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
-  .chip{font-size:10.5px;padding:2px 7px;border-radius:20px;border:1px solid var(--line);color:var(--muted);font-family:var(--mono)}
-  .chip.taki{color:var(--go);border-color:#A8D9BE}
-  .chip.nuru{color:var(--caution);border-color:#E4C98A}
-  .chip.flag{color:var(--stop);border-color:#EBB6B7}
-  .pos .meta{font-family:var(--mono);font-size:12px;color:var(--dim);margin-top:8px}
-  .close-row{display:flex;gap:8px;margin-top:11px}
-  .close-row input{flex:1}
-  .close-row .btn{width:auto;padding:13px 16px;font-size:14px}
-
-  /* stats */
-  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
-  .card{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--panel)}
-  .card .k{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-  .card .v{font-family:var(--mono);font-size:24px;font-weight:800;margin-top:4px}
-  .pos-pl{color:var(--go)} .neg-pl{color:var(--stop)}
-  .cmp{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:18px}
-  .cmp .r{display:grid;grid-template-columns:1.1fr 1fr 1fr 1fr;padding:11px 12px;font-size:13px;align-items:center}
-  .cmp .r+ .r{border-top:1px solid var(--line)}
-  .cmp .r.h{background:var(--panel2);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-  .cmp .r .lab{font-weight:700}
-  .cmp .r .num{font-family:var(--mono);text-align:right}
-  .cmp .taki .lab{color:var(--go)} .cmp .nuru .lab{color:var(--caution)}
-  .breaks{border:1px solid var(--line);border-radius:10px;background:var(--panel);padding:4px 14px;margin-bottom:18px}
-  .breaks .b{display:flex;justify-content:space-between;padding:10px 0;font-size:14px;border-bottom:1px solid var(--line)}
-  .breaks .b:last-child{border:0}
-  .breaks .b .n{font-family:var(--mono);font-weight:700}
-  .breaks .b .n.hot{color:var(--stop)}
-
-  .empty{text-align:center;color:var(--dim);padding:36px 20px;font-size:14px;border:1px dashed var(--line);border-radius:10px}
-  .foot{display:flex;gap:8px;margin-top:8px}
-  .foot .btn{font-size:13px;padding:12px}
-  .note{font-size:11.5px;color:var(--dim);margin-top:14px;line-height:1.5}
-  h2.sec{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:22px 0 10px;font-weight:700}
-  @media (prefers-reduced-motion:reduce){*{animation:none!important}}
+  body{font-family:system-ui;max-width:720px;margin:24px auto;padding:0 14px}
+  .card{border:1px solid #ccc;border-radius:10px;padding:14px;margin-bottom:10px}
+  input{width:100%;padding:8px;margin:5px 0;font-size:16px}
+  .out{font-size:24px;font-weight:bold;margin-top:8px}
 </style>
-</head>
-<body>
-<div class="wrap">
-  <header>
-    <div>
-      <div class="brand">XAUUSD <span>/ 執行ログ</span></div>
-    </div>
-    <div class="clock">
-      <div id="clock"><b>--:--</b> JST</div>
-      <div id="bandTag" class="band">—</div>
-    </div>
-  </header>
 
-  <!-- SIGNATURE: verdict banner -->
-  <div id="verdict" class="verdict v-go">
-    <div class="lvl" id="vLvl">GO</div>
-    <div class="headline" id="vHead">通常時間</div>
-    <div class="count" id="vCount" style="display:none">00:00</div>
-    <div class="sub" id="vSub">根拠が揃えば攻めてOK。入る前に滝サイドを判定。</div>
-  </div>
+<h2>XAUUSD 計算ツール</h2>
 
-  <div class="tabs">
-    <button class="on" data-tab="entry" onclick="tab('entry')">エントリー</button>
-    <button data-tab="open" onclick="tab('open')">保有中 <span id="openBadge"></span></button>
-    <button data-tab="stats" onclick="tab('stats')">実績</button>
-  </div>
+<div class="card">
+  <label>USDJPY（円/ドル）</label>
+<input id="usdjpy" type="number" step="0.001" min="0" value="154" />
+<div id="fxStatus" style="font-size:12px;opacity:.7;margin-top:6px">未更新</div>
 
-  <!-- ENTRY -->
-  <section id="tab-entry">
-    <div class="field">
-      <div class="label">方向</div>
-      <div class="seg">
-        <button class="opt" data-g="dir" data-v="buy" onclick="pick(this)">買 BUY</button>
-        <button class="opt" data-g="dir" data-v="sell" onclick="pick(this)">売 SELL</button>
-      </div>
-    </div>
+<script>
+  // USDJPY 自動取得（MoneyConvert）
+  const FX_URL = "https://cdn.moneyconvert.net/api/latest.json";
+  const FX_UPDATE_MS = 5 * 60 * 1000; // 5分（API更新頻度に合わせる）
 
-    <div class="field">
-      <div class="label">ロット <span class="hint">0.1台のみ勝率72%・それ以上は負け越し</span></div>
-      <div class="seg c4">
-        <button class="opt good" data-g="lot" data-v="0.1" onclick="pick(this)">0.1台<small>+44万</small></button>
-        <button class="opt warn" data-g="lot" data-v="0.2" onclick="pick(this)">0.2台<small>±0</small></button>
-        <button class="opt bad" data-g="lot" data-v="0.3" onclick="pick(this)">0.3台<small>−29万</small></button>
-        <button class="opt bad" data-g="lot" data-v="0.4" onclick="pick(this)">0.4+<small>−26万</small></button>
-      </div>
-    </div>
+  async function fetchUsdJpy() {
+    try {
+      const res = await fetch(FX_URL, { cache: "no-store" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
 
-    <div class="field">
-      <div class="label">滝サイド判定 <span class="hint">全収支の9割はここで決まる</span></div>
-      <div class="seg">
-        <button class="opt good" data-g="kind" data-v="taki" onclick="pick(this)">滝<small>実測 勝率75% / +12.5万</small></button>
-        <button class="opt warn" data-g="kind" data-v="nuru" onclick="pick(this)">ヌルッ<small>実測 勝率54% / −58.5万</small></button>
-      </div>
-    </div>
+      const jpy = data?.rates?.JPY; // 1 USD = ? JPY
+      if (typeof jpy !== "number" || !isFinite(jpy) || jpy <= 0) {
+        throw new Error("JPY rate not found");
+      }
 
-    <div class="field">
-      <div class="label">軸（US10Yの効き）</div>
-      <div class="seg c4">
-        <button class="opt good" data-g="axis" data-v="confirm" onclick="pick(this)">確認<small>3bp+</small></button>
-        <button class="opt" data-g="axis" data-v="tilt" onclick="pick(this)">傾き<small>中間</small></button>
-        <button class="opt warn" data-g="axis" data-v="smolder" onclick="pick(this)">燻り<small>&lt;0.5bp</small></button>
-        <button class="opt warn" data-g="axis" data-v="halt" onclick="pick(this)">軸停止<small>乖離</small></button>
-      </div>
-    </div>
+      const usdjpyEl = document.getElementById("usdjpy");
+      usdjpyEl.value = jpy.toFixed(3);
 
-    <div class="field">
-      <div class="label">損切り(SL) <span class="hint">SLなし10件は全て強制ロスカット・勝率0%</span></div>
-      <div class="seg">
-        <button class="opt good" data-g="sl" data-v="1" onclick="pick(this)">置いた</button>
-        <button class="opt bad" data-g="sl" data-v="0" onclick="pick(this)">なし</button>
-      </div>
-    </div>
+      const st = document.getElementById("fxStatus");
+      st.textContent = `自動更新: ${new Date().toLocaleString()}（USDJPY=${jpy.toFixed(3)}）`;
+    } catch (e) {
+      const st = document.getElementById("fxStatus");
+      st.textContent = `自動更新失敗: ${new Date().toLocaleString()}（前回値を使用）`;
+    }
 
-    <div class="field">
-      <div class="label">エントリー価格 <span class="hint">任意</span></div>
-      <input type="number" id="entryPrice" inputmode="decimal" placeholder="例 4041.7" step="0.001">
-    </div>
+    // 既存の計算を再実行（あなたのコード側の updateAll / update を呼ぶ）
+    // 関数名が updateAll の場合:
+    if (typeof updateAll === "function") updateAll();
+    // 関数名が update の場合:
+    if (typeof update === "function") update();
+  }
 
-    <div id="assess" class="assess"><div class="a-head">項目を選ぶと評価が出ます</div></div>
+  // 初回
+  fetchUsdJpy();
+  // 定期更新
+  setInterval(fetchUsdJpy, FX_UPDATE_MS);
+</script>
+</div>
 
-    <button id="saveBtn" class="btn" onclick="saveTrade()">この条件で記録する</button>
-    <div class="note">ルール違反でも記録は残します（後で検証するため）。違反はその場で赤く表示されます。</div>
-  </section>
+<div class="card">
+  <h3>① ロット算出</h3>
+  <label>耐えるドル数</label>
+  <input id="d1" type="number" step="0.01">
+  <label>証拠金（円）</label>
+  <input id="yen1" type="number">
+  <div class="out" id="lotOut">—</div>
+</div>
 
-  <!-- OPEN -->
-  <section id="tab-open" style="display:none">
-    <div id="openList"></div>
-  </section>
-
-  <!-- STATS -->
-  <section id="tab-stats" style="display:none">
-    <div class="stat-grid">
-      <div class="card"><div class="k">累計損益</div><div class="v" id="sPL">—</div></div>
-      <div class="card"><div class="k">勝率 / 件数</div><div class="v" id="sWR">—</div></div>
-    </div>
-
-    <h2 class="sec">滝side vs ヌルッside</h2>
-    <div class="cmp">
-      <div class="r h"><div>種別</div><div class="num">件数</div><div class="num">勝率</div><div class="num">損益</div></div>
-      <div class="r taki"><div class="lab">滝</div><div class="num" id="tN">—</div><div class="num" id="tW">—</div><div class="num" id="tP">—</div></div>
-      <div class="r nuru"><div class="lab">ヌルッ</div><div class="num" id="nN">—</div><div class="num" id="nW">—</div><div class="num" id="nP">—</div></div>
-    </div>
-
-    <h2 class="sec">ルール違反タリー</h2>
-    <div class="breaks" id="breaks"></div>
-
-    <h2 class="sec">その他</h2>
-    <div class="stat-grid">
-      <div class="card"><div class="k">再エントリー(30分内)</div><div class="v" id="sRe">—</div></div>
-      <div class="card"><div class="k">平均保有</div><div class="v" id="sHold">—</div></div>
-    </div>
-
-    <div class="foot">
-      <button class="btn ghost" onclick="exportCSV()">CSV書き出し</button>
-      <button class="btn ghost" onclick="exportJSON()">バックアップ</button>
-    </div>
-    <div class="foot">
-      <button class="btn ghost" onclick="document.getElementById('imp').click()">復元</button>
-      <button class="btn ghost" onclick="wipe()">全消去</button>
-    </div>
-    <input type="file" id="imp" accept=".json" style="display:none" onchange="importJSON(event)">
-    <div class="note">CSVは1ヶ月ごとに書き出して検証に使えます（再エントリー件数・滝比率・保有時間の推移を追う）。データはこの端末内にのみ保存されます。</div>
-  </section>
+<div class="card">
+  <h3>④ 任意ドル変動での含み損益（①のロット使用）</h3>
+  <label>ドル変動幅（例: +10 / -25）</label>
+  <input id="move4" type="number" step="0.01">
+  <div class="out" id="plOut">—</div>
 </div>
 
 <script>
-"use strict";
-const COOLDOWN_MS = 30*60*1000;
-let store = { trades: [] };       // closed + open
-let draft = {};                    // current entry selections
+const $ = id => document.getElementById(id);
+const USD_PER_DOLLAR_PER_LOT = 100;
 
-/* ---------- persistence (localStorage w/ in-memory fallback) ---------- */
-function load(){ try{ const r=localStorage.getItem('xau_log'); if(r) store=JSON.parse(r); }catch(e){} }
-function save(){ try{ localStorage.setItem('xau_log', JSON.stringify(store)); }catch(e){} }
+let calculatedLot = 0;
 
-/* ---------- JST helpers ---------- */
-function jstNow(){ return new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Tokyo'})); }
-function jstHour(ms){ return new Date(new Date(ms).toLocaleString('en-US',{timeZone:'Asia/Tokyo'})).getHours(); }
-function isMagic(h){ return h>=20 && h<=23; }
-function isHonmei(h){ return h===0 || h===1; }
-function fmtClock(d){ return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
-function fmtMoney(n){ return (n>=0?'+':'')+Math.round(n).toLocaleString('ja-JP'); }
-function mmss(ms){ const s=Math.max(0,Math.ceil(ms/1000)); return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); }
+function update(){
+  const usdjpy = parseFloat($("usdjpy").value);
+  const D1 = parseFloat($("d1").value);
+  const yen1 = parseFloat($("yen1").value);
 
-/* ---------- cooldown ---------- */
-function lastLossClose(){
-  let last=null;
-  for(const t of store.trades){
-    if(t.status==='closed' && t.pnl<0 && t.closeMs){ if(!last||t.closeMs>last) last=t.closeMs; }
+  // ① ロット算出
+  if(D1>0 && yen1>0){
+    calculatedLot = (yen1/usdjpy)/(100*D1);
+    $("lotOut").textContent = calculatedLot.toFixed(3)+" lot";
   }
-  return last;
-}
-function cooldownLeft(){
-  const l=lastLossClose(); if(!l) return 0;
-  return Math.max(0, COOLDOWN_MS-(Date.now()-l));
-}
 
-/* ---------- verdict banner ---------- */
-function renderVerdict(){
-  const now=jstNow(), h=now.getHours();
-  document.getElementById('clock').innerHTML='<b>'+fmtClock(now)+'</b> JST';
-  const bt=document.getElementById('bandTag');
-  if(isMagic(h)){ bt.className='band magic'; bt.textContent='魔の時間帯 20-23時'; }
-  else if(isHonmei(h)){ bt.className='band honmei'; bt.textContent='本命帯 0-1時'; }
-  else if(h>=2&&h<=4){ bt.className='band honmei'; bt.textContent='連動最強 2-4時'; }
-  else if(h>=11&&h<=13){ bt.className='band'; bt.textContent='軸不感帯 11-13時'; }
-  else { bt.className='band'; bt.textContent='通常時間'; }
-
-  const v=document.getElementById('verdict'), cd=cooldownLeft();
-  const lvl=document.getElementById('vLvl'), head=document.getElementById('vHead'),
-        sub=document.getElementById('vSub'), cnt=document.getElementById('vCount');
-  if(cd>0){
-    v.className='verdict v-stop'; lvl.textContent='STOP'; head.textContent='クールダウン中';
-    cnt.style.display='block'; cnt.textContent=mmss(cd);
-    sub.textContent='損切り直後30分は新規禁止（最大の穴・−41.5万）。「取り返せる」が最も危険。時間で切る。';
-  } else if(isMagic(h)){
-    v.className='verdict v-caution'; lvl.textContent='CAUTION'; head.textContent='魔の時間帯';
-    cnt.style.display='none';
-    sub.textContent='入ってよい。ただし実測では0.1台=+21.5万・0.3以上=−70万。0.1台・SL必置・滝のみに絞れば攻める価値あり。';
-  } else if(isHonmei(h)||(h>=2&&h<=4)){
-    v.className='verdict v-go'; lvl.textContent='GO'; head.textContent='本命帯';
-    cnt.style.display='none';
-    sub.textContent='連動が最強の時間。方向が定まった順張り初動を狙える。それでも滝サイドの確認は必須。';
-  } else {
-    v.className='verdict v-go'; lvl.textContent='GO'; head.textContent='通常時間';
-    cnt.style.display='none';
-    sub.textContent='根拠が揃えば攻めてOK。入る前に「滝side(75%)かヌルッside(54%)か」を判定。';
+  // ④ 損益計算（①のロット使用）
+  const move = parseFloat($("move4").value);
+  if(calculatedLot>0 && move){
+    const plUsd = calculatedLot*100*move;
+    const plYen = plUsd*usdjpy;
+    $("plOut").textContent =
+      plUsd.toFixed(1)+" USD / "+
+      plYen.toFixed(0)+" 円";
   }
 }
 
-/* ---------- entry form ---------- */
-function pick(el){
-  const g=el.dataset.g;
-  document.querySelectorAll('[data-g="'+g+'"]').forEach(b=>b.classList.remove('sel'));
-  el.classList.add('sel');
-  draft[g]=el.dataset.v;
-  renderAssess();
-}
-function renderAssess(){
-  const a=document.getElementById('assess');
-  const issues=[], good=[];
-  const cd=cooldownLeft();
-  if(cd>0) issues.push('クールダウン中（あと'+mmss(cd)+'）。この記録は<b>ルール違反</b>として残る。');
-  if(draft.kind==='nuru') issues.push('ヌルッside＝実測勝率54%・全体で−58.5万。値幅があっても原則見送り。');
-  if(draft.kind==='taki') good.push('滝side＝実測勝率75%。攻めてよい側。');
-  if(draft.lot&&draft.lot!=='0.1') issues.push('ロット0.1台以外は実測で負け越し。0.1台に戻すべき。');
-  if(draft.sl==='0') issues.push('SLなし＝過去10件全て強制ロスカット・勝率0%。必ず置く。');
-  if(draft.axis==='smolder') issues.push('燻り(＜0.5bp)の金利は判断材料にならない。ラインBのPAで見る。');
-  const h=jstNow().getHours();
-  if(isMagic(h)){
-    if(draft.lot && draft.lot!=='0.1') issues.push('魔の時間帯で0.1台超は実測−70万の震源。ロットを0.1台へ落とせば攻めてよい時間。');
-    else good.push('魔の時間帯だが0.1台なら実測+21.5万・勝率71%。SL必置・滝のみで入ってよい。');
-  }
+["usdjpy","d1","yen1","move4"]
+.forEach(id=>$(id).addEventListener("input",update));
 
-  let cls,head;
-  if(cd>0 || draft.sl==='0'){ cls='a-stop'; head='見送り推奨（防具に抵触）'; }
-  else if(issues.length){ cls='a-warn'; head='慎重に / 半分サイズ'; }
-  else if(draft.kind==='taki'){ cls='a-go'; head='GO — 滝サイド'; }
-  else { cls='a-go'; head='条件を満たせばGO'; }
-
-  let html='<div class="a-head">'+head+'</div>';
-  if(good.length) html+='<ul>'+good.map(x=>'<li>'+x+'</li>').join('')+'</ul>';
-  if(issues.length) html+='<ul>'+issues.map(x=>'<li>'+x+'</li>').join('')+'</ul>';
-  if(!good.length&&!issues.length) html+='<div style="color:var(--muted);font-size:13px">方向・ロット・滝サイド・軸・SLを選択。</div>';
-  a.className='assess '+cls; a.innerHTML=html;
-}
-
-function saveTrade(){
-  if(!draft.dir||!draft.lot||!draft.kind||!draft.sl){
-    const a=document.getElementById('assess');
-    a.className='assess a-warn';
-    a.innerHTML='<div class="a-head">記録に必要な項目が未選択</div><ul><li>方向・ロット・滝サイド・SL は必須です。</li></ul>';
-    return;
-  }
-  const openMs=Date.now(), h=jstHour(openMs), cd=cooldownLeft();
-  const t={
-    id:openMs+'-'+Math.random().toString(36).slice(2,6),
-    dir:draft.dir, lot:draft.lot, kind:draft.kind,
-    axis:draft.axis||null, sl:draft.sl==='1',
-    entry: parseFloat(document.getElementById('entryPrice').value)||null,
-    openMs, openHour:h,
-    magic:isMagic(h), reentry:cd>0,
-    status:'open', closeMs:null, pnl:null, holdMin:null, early:null, win:null
-  };
-  store.trades.push(t); save();
-  draft={}; document.querySelectorAll('.opt.sel').forEach(b=>b.classList.remove('sel'));
-  document.getElementById('entryPrice').value='';
-  document.getElementById('assess').innerHTML='<div class="a-head">記録しました → 「保有中」で決済を入力</div>';
-  document.getElementById('assess').className='assess a-go';
-  refresh(); tab('open');
-}
-
-/* ---------- open positions ---------- */
-const AXIS_LABEL={confirm:'確認3bp+',tilt:'傾き',smolder:'燻り',halt:'軸停止'};
-function renderOpen(){
-  const open=store.trades.filter(t=>t.status==='open').sort((a,b)=>b.openMs-a.openMs);
-  document.getElementById('openBadge').textContent=open.length?'('+open.length+')':'';
-  const box=document.getElementById('openList');
-  if(!open.length){ box.innerHTML='<div class="empty">保有中のポジションはありません。<br>「エントリー」で記録すると、ここで決済を入力できます。</div>'; return; }
-  box.innerHTML=open.map(t=>{
-    const held=Math.round((Date.now()-t.openMs)/60000);
-    const chips=[];
-    chips.push('<span class="chip '+(t.kind==='taki'?'taki':'nuru')+'">'+(t.kind==='taki'?'滝':'ヌルッ')+'</span>');
-    chips.push('<span class="chip">'+t.lot+'台</span>');
-    if(t.axis) chips.push('<span class="chip">'+AXIS_LABEL[t.axis]+'</span>');
-    if(!t.sl) chips.push('<span class="chip flag">SLなし</span>');
-    if(t.magic) chips.push('<span class="chip flag">魔の時間帯</span>');
-    if(t.reentry) chips.push('<span class="chip flag">再エントリー</span>');
-    return '<div class="pos">'+
-      '<div class="top"><span class="dir '+(t.dir==='buy'?'dir-buy':'dir-sell')+'">'+(t.dir==='buy'?'▲ 買':'▼ 売')+(t.entry?' '+t.entry:'')+'</span>'+
-      '<span class="meta">保有 '+held+'分</span></div>'+
-      '<div class="chips">'+chips.join('')+'</div>'+
-      '<div class="close-row">'+
-        '<input type="number" inputmode="numeric" placeholder="損益（円）例 -33464" id="pl-'+t.id+'">'+
-        '<button class="btn" onclick="closeTrade(\''+t.id+'\')">決済</button>'+
-      '</div></div>';
-  }).join('');
-}
-function closeTrade(id){
-  const t=store.trades.find(x=>x.id===id); if(!t) return;
-  const raw=document.getElementById('pl-'+id).value;
-  if(raw===''){ alert('損益（円）を入力してください'); return; }
-  const pnl=parseFloat(raw);
-  t.status='closed'; t.closeMs=Date.now(); t.pnl=pnl; t.win=pnl>0;
-  t.holdMin=Math.round((t.closeMs-t.openMs)/60000);
-  t.early=(t.holdMin<10);
-  save(); refresh();
-  if(pnl<0){ tab('entry'); renderVerdict(); }  // surface fresh cooldown
-}
-
-/* ---------- stats ---------- */
-function renderStats(){
-  const cl=store.trades.filter(t=>t.status==='closed');
-  const pl=cl.reduce((s,t)=>s+t.pnl,0);
-  const wins=cl.filter(t=>t.win).length;
-  const sPL=document.getElementById('sPL');
-  sPL.textContent=cl.length?fmtMoney(pl):'—'; sPL.className='v '+(pl>=0?'pos-pl':'neg-pl');
-  document.getElementById('sWR').textContent=cl.length?Math.round(100*wins/cl.length)+'% / '+cl.length+'件':'—';
-
-  function grp(k){ const g=cl.filter(t=>t.kind===k); const w=g.filter(t=>t.win).length;
-    const p=g.reduce((s,t)=>s+t.pnl,0); return {n:g.length,wr:g.length?Math.round(100*w/g.length):0,p}; }
-  const T=grp('taki'), N=grp('nuru');
-  document.getElementById('tN').textContent=T.n; document.getElementById('tW').textContent=T.n?T.wr+'%':'—'; document.getElementById('tP').textContent=T.n?fmtMoney(T.p):'—';
-  document.getElementById('nN').textContent=N.n; document.getElementById('nW').textContent=N.n?N.wr+'%':'—'; document.getElementById('nP').textContent=N.n?fmtMoney(N.p):'—';
-
-  const all=store.trades;
-  const reN=all.filter(t=>t.reentry).length;
-  const reP=cl.filter(t=>t.reentry).reduce((s,t)=>s+t.pnl,0);
-  document.getElementById('sRe').textContent=reN+'件';
-  const holds=cl.filter(t=>t.holdMin!=null).map(t=>t.holdMin);
-  document.getElementById('sHold').textContent=holds.length?Math.round(holds.reduce((a,b)=>a+b,0)/holds.length)+'分':'—';
-
-  const breaks=[
-    ['ヌルッで入った', all.filter(t=>t.kind==='nuru').length],
-    ['ロット0.1台超', all.filter(t=>t.lot&&t.lot!=='0.1').length],
-    ['SLなし', all.filter(t=>t.sl===false).length],
-    ['魔の時間帯', all.filter(t=>t.magic).length],
-    ['再エントリー(30分内)', reN],
-    ['早降り(10分未満)', cl.filter(t=>t.early).length],
-  ];
-  document.getElementById('breaks').innerHTML=breaks.map(([k,n])=>
-    '<div class="b"><span>'+k+'</span><span class="n'+(n>0?' hot':'')+'">'+n+'</span></div>').join('');
-}
-
-/* ---------- export / import ---------- */
-function exportCSV(){
-  const cols=['open_jst','close_jst','dir','lot','kind','axis','sl','entry','pnl','hold_min','early','reentry','magic','win'];
-  const jstStr=ms=>ms?new Date(new Date(ms).toLocaleString('sv-SE',{timeZone:'Asia/Tokyo'})).toISOString().slice(0,19):'';
-  const rows=store.trades.map(t=>[jstStr(t.openMs),jstStr(t.closeMs),t.dir,t.lot,t.kind,t.axis||'',t.sl?1:0,t.entry??'',t.pnl??'',t.holdMin??'',t.early?1:0,t.reentry?1:0,t.magic?1:0,t.win==null?'':(t.win?1:0)]);
-  const csv=[cols.join(',')].concat(rows.map(r=>r.join(','))).join('\n');
-  dl(new Blob([csv],{type:'text/csv'}),'xau_log_'+Date.now()+'.csv');
-}
-function exportJSON(){ dl(new Blob([JSON.stringify(store)],{type:'application/json'}),'xau_backup_'+Date.now()+'.json'); }
-function dl(blob,name){ const u=URL.createObjectURL(blob),a=document.createElement('a'); a.href=u; a.download=name; a.click(); URL.revokeObjectURL(u); }
-function importJSON(e){ const f=e.target.files[0]; if(!f) return; const r=new FileReader();
-  r.onload=()=>{ try{ const d=JSON.parse(r.result); if(d.trades){ store=d; save(); refresh(); alert('復元しました'); } }catch(x){ alert('読み込めませんでした'); } }; r.readAsText(f); }
-function wipe(){ if(confirm('全ての記録を消去します。よろしいですか？')){ store={trades:[]}; save(); refresh(); } }
-
-/* ---------- tabs / boot ---------- */
-function tab(name){
-  ['entry','open','stats'].forEach(n=>{
-    document.getElementById('tab-'+n).style.display=(n===name?'':'none');
-    document.querySelector('[data-tab="'+n+'"]').classList.toggle('on',n===name);
-  });
-  if(name==='open') renderOpen();
-  if(name==='stats') renderStats();
-}
-function refresh(){ renderVerdict(); renderOpen(); renderStats(); }
-load(); refresh(); renderAssess();
-setInterval(renderVerdict, 1000);   // live clock + cooldown countdown
+update();
 </script>
-</body>
-</html>
